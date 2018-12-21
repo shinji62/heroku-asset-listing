@@ -1,0 +1,128 @@
+resources:
+- name: heroku-asset-listing-master
+  type: git
+  source:
+    uri: git@github.com:shinji62/heroku-asset-listing.git
+    branch: master
+    private_key: {{private-key-github-concourse}}
+
+- name: version
+  type: semver
+  source:
+    driver: git
+    uri: git@github.com:shinji62/heroku-asset-listing.git
+    branch: version
+    file: version
+    private_key: {{private-key-github-concourse}}
+    git_user: {{concourse-user-gitinfo}}
+
+- name: gh-release
+  type: github-release
+  source:
+    user: shinji62
+    repository: heroku-asset-listing
+    access_token: {{github-access-token}}
+
+- name: heroku-listing-docker-image
+  type: docker-image
+  source:
+    repository: quoinedev/heroku-asset-listing
+    username: {{username-docker-hub}}
+    password: {{password-docker-hub}}
+
+
+jobs:
+- name: Unit-Testing-master
+  plan:
+  - aggregate:
+    - get: heroku-asset-listing-master
+      trigger: true
+  - task: unit-testing
+    file: heroku-asset-listing-master/ci/tasks/unit-testing/unit-testing.yml
+    input_mapping:
+      source-code: heroku-asset-listing-master
+
+      
+- name: Ship-it-Patch
+  public: true
+  serial: true
+  plan:
+  - aggregate:
+    - get: heroku-asset-listing-master
+      passed:
+      - Unit-Testing-master
+  - put: version
+    params:
+      bump: patch
+  - <<: *build-binary
+  - <<: *githug-release
+  - <<: *heroku-docker
+  - <<: *tag-git-push
+
+
+
+- name: Ship-it-Minor
+  public: true
+  serial: true
+  plan:
+  - aggregate:
+    - get: heroku-asset-listing-master
+      passed:
+      - Unit-Testing-master
+  - put: version
+    params:
+      bump: minor
+  - <<: *build-binary
+  - <<: *githug-release
+  - <<: *heroku-docker
+  - <<: *tag-git-push
+
+
+- name: Ship-it-Major
+  public: true
+  serial: true
+  plan:
+  - aggregate:
+    - get: heroku-asset-listing-master
+      passed:
+      - Unit-Testing-master
+  - put: version
+    params:
+      bump: major
+  - <<: *build-binary
+  - <<: *githug-release
+  - <<: *heroku-docker
+  - <<: *tag-git-push
+
+
+
+
+templating:
+  - &build-binary
+    task: build-binary
+    file: heroku-asset-listing-master/ci/tasks/build-binary/build-binary.yml
+    params:
+      COMMIT_SHA1: heroku-asset-listing-master/.git/ref
+      VERSION_APP: version/version
+    input_mapping:
+      source-code: heroku-asset-listing-master
+  - &githug-release
+    put: gh-release
+    params:
+      globs:
+      - binary-builded/heroku-listing
+      name: version/version
+      tag: version/version
+  - &heroku-docker
+    put: heroku-listing-docker-image
+    params:
+      build: binary-builded/
+      dockerfile: heroku-asset-listing-master/Dockerfile
+      tag_as_latest: true
+      tag_file: version/version
+  - &tag-git-push
+    put: heroku-asset-listing-master
+    params:
+      only_tag: true
+      repository: heroku-asset-listing-master
+      tag: version/version

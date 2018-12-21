@@ -1,0 +1,33 @@
+---
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: golang
+    tag: 1.11-alpine3.8
+
+
+inputs:
+  - name: source-code
+
+outputs:
+  - name: binary-builded
+
+params:
+  VERSION_APP:
+  COMMIT_SHA1:
+
+run:
+  path: sh
+  args:
+  - -c
+  - |
+    set -e -u -x
+    export ROOT_DIR=$PWD
+    export BUILD_NUMBER=`[ ${VERSION_APP} ] && cat ${VERSION_APP} || echo "0.0.0"`
+    export SHA1=`[ ${COMMIT_SHA1} ] && cat ${COMMIT_SHA1} || echo "000000000"`
+    export DATE=$(date +%Y_%m_%d)
+
+    cd source-code/
+    CGO_ENABLED=0 GO111MODULE=on GOOS=linux go build '-mod=vendor'  -ldflags  " -X main.version=$BUILD_NUMBER -X main.commit_sha1=$SHA1 -X main.builddate=$DATE " -a -installsuffix cgo -o ../binary-builded/heroku-listing ./cmd/listing/
