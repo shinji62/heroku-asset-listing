@@ -20,7 +20,8 @@ func NewTabWriter(output *os.File) *TabWriter {
 func (t *TabWriter) RenderApps(herokuOrgs []herokuls.HerokuOrganization) {
 	table := tablewriter.NewWriter(t.fileOutput)
 	table.SetHeader([]string{"Name", "Released", "Updated", "Dynos", "Addons", "Stack"})
-
+	table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
+	table.SetCenterSeparator("|")
 	for _, org := range herokuOrgs {
 		for _, app := range org.Apps {
 			status := "NOT RUNNING"
