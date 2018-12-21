@@ -2,9 +2,12 @@
 # release container
 #
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /bin/
-COPY ./redis-sl-fwd-to-sumologic ./redis-sl-fwd-to-sumologic
+RUN apk --no-cache add \
+    ca-certificates \
+    bash \
+    git
 
-EXPOSE     9121
-ENTRYPOINT [ "/bin/redis-sl-fwd-to-sumologic" ]
+WORKDIR /bin/
+COPY ./heroku-listing ./heroku-listing
+
+ENTRYPOINT [ "/bin/heroku-listing" ]
