@@ -89,7 +89,7 @@ func (hls *HerokuListing) ListAllAppsByOrganisation() ([]HerokuOrganization, err
 //return list of Heroku App
 func (hls *HerokuListing) getAppsbyOrg(organization heroku.Organization) ([]HerokuApp, error) {
 
-	Apps, err := hls.Cli.OrganizationAppListForOrganization(hls.ctx, organization.ID, &heroku.ListRange{Field: "name"})
+	apps, err := hls.Cli.OrganizationAppListForOrganization(hls.ctx, organization.ID, &heroku.ListRange{Field: "name"})
 	var herokuApps []HerokuApp
 	if err != nil {
 		return []HerokuApp{}, err
@@ -97,12 +97,12 @@ func (hls *HerokuListing) getAppsbyOrg(organization heroku.Organization) ([]Hero
 
 	var wg = &sync.WaitGroup{}
 	var mutex = &sync.Mutex{}
-	errChannel := make(chan error, len(Apps))
+	errChannel := make(chan error, len(apps))
 
 	// Heroku have some unclear limit on Request by sec.
 	rl := ratelimit.New(40) // per second
 
-	for _, app := range Apps {
+	for _, app := range apps {
 		wg.Add(1)
 		go func(app heroku.OrganizationApp) {
 			defer wg.Done()
@@ -170,6 +170,18 @@ func (hls *HerokuListing) GetRateLimitingRemaining() (int, error) {
 	return rate.Remaining, nil
 }
 
+func (hls *HerokuListing) GetDynoSizeInformation() (map[string]int, error) {
+	dynosSize, err := hls.Cli.DynoSizeList(hls.ctx, &heroku.ListRange{Field: "id"})
+	dynoInfo := make(map[string]int, len(dynosSize))
+	if err != nil {
+		return dynoInfo, err
+	}
+	for _, dynoSize := range dynosSize {
+		dynoInfo[dynoSize.Name] = dynoSize.DynoUnits
+	}
+	return dynoInfo, nil
+}
+
 func CountDynoTypeByApp(dynos []heroku.Dyno) []DynoTypeByApp {
 	var dynoTypeByApp []DynoTypeByApp
 	dynosCumulated := CountDynosCumulated(dynos)
@@ -181,6 +193,14 @@ func CountDynoTypeByApp(dynos []heroku.Dyno) []DynoTypeByApp {
 
 	}
 	return dynoTypeByApp
+}
+
+func CountTotalDynoUnitByApp(dynosByApp []DynoTypeByApp, dynoSize map[string]int) int {
+	var totalUnitByApp int
+	for _, dyno := range dynosByApp {
+		totalUnitByApp += dyno.Total * dynoSize[dyno.DynoSize]
+	}
+	return totalUnitByApp
 }
 
 func CountDynosCumulated(dynos []heroku.Dyno) map[string]int {

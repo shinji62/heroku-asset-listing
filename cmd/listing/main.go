@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	hUsername = kingpin.Flag("heroku.username", "Heroku username").Required().Envar("HEROKU_USERNAME").String()
-	hPassword = kingpin.Flag("heroku.password", "Heroku password").Required().Envar("HEROKU_PASSWORD").String()
-	format    = kingpin.Flag("format", "formating output (valid values json,tab,pretty-json default to tab)").Envar("OUTPUT_FORMAT").Default("tab").Enum("json", "tab", "pretty-json")
+	hUsername     = kingpin.Flag("heroku.username", "Heroku username").Required().Envar("HEROKU_USERNAME").String()
+	hPassword     = kingpin.Flag("heroku.password", "Heroku password").Required().Envar("HEROKU_PASSWORD").String()
+	format        = kingpin.Flag("format", "formating output (valid values json,tab,pretty-json default to tab)").Envar("OUTPUT_FORMAT").Default("tab").Enum("json", "tab", "pretty-json")
+	dynoUnitPrice = kingpin.Flag("heroku.dyno-unit-price", "Price in $ of 1 dyno unit (default 0)").Envar("HEROKU_DYNO_PRICE").Default("0").Int()
 )
 
 const (
@@ -44,6 +45,10 @@ func main() {
 		os.Exit(ExitCodeError)
 	}
 
+	dynoSize, err := hls.GetDynoSizeInformation()
+	if err != nil {
+		fmt.Println(err)
+	}
 	var out output.Output
 	switch *format {
 	case "json":
@@ -57,6 +62,6 @@ func main() {
 		os.Exit(ExitCodeError)
 	}
 
-	out.RenderApps(herokuOrgs)
+	out.RenderApps(herokuOrgs, dynoSize, *dynoUnitPrice)
 
 }

@@ -20,7 +20,7 @@ func NewJsonWriter(fileOutput *os.File, prettyJson bool) *JsonWriter {
 	}
 }
 
-func (j *JsonWriter) RenderApps(herokuOrgs []herokuls.HerokuOrganization) {
+func (j *JsonWriter) RenderApps(herokuOrgs []herokuls.HerokuOrganization, dynoSize map[string]int, dynoUnitPrice int) {
 
 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 	var b []byte
