@@ -6,6 +6,7 @@ import (
 	"os"
 
 	heroku "github.com/heroku/heroku-go/v3"
+	"github.com/shinji62/heroku-asset-listing/pkg/herokuipls"
 	"github.com/shinji62/heroku-asset-listing/pkg/herokuls"
 	"github.com/shinji62/heroku-asset-listing/pkg/output"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -23,6 +24,9 @@ var (
 	cloud         = cli.Command("cloud", "list cloud assets")
 	format        = cloud.Flag("format", "formating output (valid values json,tab,pretty-json default to tab)").Envar("OUTPUT_FORMAT").Default("tab").Enum("json", "tab", "pretty-json")
 	dynoUnitPrice = cloud.Flag("heroku.dyno-unit-price", "Price in $ of 1 dyno unit (default 0)").Envar("HEROKU_DYNO_PRICE").Default("0").Int()
+
+	ips        = cli.Command("ips", "list cloud assets")
+	outputFile = ips.Flag("output", "Output filename").Short('o').Default("ips-listing.yml").String()
 )
 
 const (
@@ -50,6 +54,8 @@ func main() {
 	switch cmd {
 	case cloud.FullCommand():
 		doCloud()
+	case ips.FullCommand():
+		doIPs()
 	}
 
 }
@@ -82,4 +88,14 @@ func doCloud() {
 	}
 
 	out.RenderApps(herokuOrgs, dynoSize, *dynoUnitPrice)
+}
+
+func doIPs() {
+	h := heroku.NewService(heroku.DefaultClient)
+	hs := herokuipls.NewHerokuService(h)
+	ipList := hs.GetIPList("heroku-ips-listing", "ips from heroku spaces")
+
+	f, _ := os.Create(*outputFile)
+	ipList.Yamlize(f)
+	fmt.Println(fmt.Sprintf("Success! Created file: %s", *outputFile))
 }
