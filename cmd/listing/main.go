@@ -24,7 +24,7 @@ var (
 	format        = cloud.Flag("format", "formating output (valid values json,tab,pretty-json default to tab)").Envar("OUTPUT_FORMAT").Default("tab").Enum("json", "tab", "pretty-json")
 	dynoUnitPrice = cloud.Flag("heroku.dyno-unit-price", "Price in $ of 1 dyno unit (default 0)").Envar("HEROKU_DYNO_PRICE").Default("0").Int()
 
-	ips        = cli.Command("ips", "list cloud assets")
+	ips        = cli.Command("ips", "list Outbouand ips")
 	outputFile = ips.Flag("output", "Output filename").Short('o').Default("ips-listing.yml").String()
 )
 
