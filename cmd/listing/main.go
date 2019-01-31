@@ -12,10 +12,17 @@ import (
 )
 
 var (
-	hUsername     = kingpin.Flag("heroku.username", "Heroku username").Required().Envar("HEROKU_USERNAME").String()
-	hPassword     = kingpin.Flag("heroku.password", "Heroku password").Required().Envar("HEROKU_PASSWORD").String()
-	format        = kingpin.Flag("format", "formating output (valid values json,tab,pretty-json default to tab)").Envar("OUTPUT_FORMAT").Default("tab").Enum("json", "tab", "pretty-json")
-	dynoUnitPrice = kingpin.Flag("heroku.dyno-unit-price", "Price in $ of 1 dyno unit (default 0)").Envar("HEROKU_DYNO_PRICE").Default("0").Int()
+	cli       = kingpin.New("heroku-listing", "assets listing tool from devops")
+	hUsername = cli.Flag("heroku.username", "Heroku username").Required().Envar("HEROKU_USERNAME").String()
+	hPassword = cli.Flag("heroku.password", "Heroku password").Required().Envar("HEROKU_PASSWORD").String()
+	hToken    = cli.Flag(
+		"heroku.token",
+		"(Optional) Heroku Authorizations Token. If token is present, basic auth will be ignored.",
+	).Short('t').Envar("HEROKU_AUTH_TOKEN").String()
+
+	cloud         = cli.Command("cloud", "list cloud assets")
+	format        = cloud.Flag("format", "formating output (valid values json,tab,pretty-json default to tab)").Envar("OUTPUT_FORMAT").Default("tab").Enum("json", "tab", "pretty-json")
+	dynoUnitPrice = cloud.Flag("heroku.dyno-unit-price", "Price in $ of 1 dyno unit (default 0)").Envar("HEROKU_DYNO_PRICE").Default("0").Int()
 )
 
 const (
@@ -31,12 +38,24 @@ var (
 
 func main() {
 	log.SetFlags(0)
-	kingpin.Version(version)
-	kingpin.Parse()
+	cli.Version(version)
 
+	cmd := kingpin.MustParse(cli.Parse(os.Args[1:]))
 	heroku.DefaultTransport.Username = *hUsername
 	heroku.DefaultTransport.Password = *hPassword
+	if hToken != nil {
+		heroku.DefaultTransport.BearerToken = *hToken
+	}
 
+	switch cmd {
+	case cloud.FullCommand():
+		doCloud()
+	}
+
+}
+
+func doCloud() {
+	// cloud command
 	h := heroku.NewService(heroku.DefaultClient)
 	hls := herokuls.NewHerokuListing(h)
 	herokuOrgs, err := hls.ListAllAppsByOrganisation()
@@ -63,5 +82,4 @@ func main() {
 	}
 
 	out.RenderApps(herokuOrgs, dynoSize, *dynoUnitPrice)
-
 }
