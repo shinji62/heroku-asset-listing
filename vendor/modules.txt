@@ -28,3 +28,5 @@ go.uber.org/ratelimit
 go.uber.org/ratelimit/internal/clock
 # gopkg.in/alecthomas/kingpin.v2 v2.2.6
 gopkg.in/alecthomas/kingpin.v2
+# gopkg.in/yaml.v2 v2.2.2
+gopkg.in/yaml.v2
