@@ -6,7 +6,6 @@ import (
 	"os"
 
 	heroku "github.com/heroku/heroku-go/v3"
-	"github.com/shinji62/heroku-asset-listing/pkg/herokuipls"
 	"github.com/shinji62/heroku-asset-listing/pkg/herokuls"
 	"github.com/shinji62/heroku-asset-listing/pkg/output"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -51,51 +50,46 @@ func main() {
 		heroku.DefaultTransport.BearerToken = *hToken
 	}
 
-	switch cmd {
-	case cloud.FullCommand():
-		doCloud()
-	case ips.FullCommand():
-		doIPs()
-	}
-
-}
-
-func doCloud() {
-	// cloud command
 	h := heroku.NewService(heroku.DefaultClient)
 	hls := herokuls.NewHerokuListing(h)
-	herokuOrgs, err := hls.ListAllAppsByOrganisation()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(ExitCodeError)
+
+	switch cmd {
+	case cloud.FullCommand():
+		herokuOrgs, err := hls.ListAllAppsByOrganisation()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(ExitCodeError)
+		}
+
+		dynoSize, err := hls.GetDynoSizeInformation()
+		if err != nil {
+			fmt.Println(err)
+		}
+		var out output.Output
+		switch *format {
+		case "json":
+			out = output.NewJsonWriter(os.Stdout, false)
+		case "pretty-json":
+			out = output.NewJsonWriter(os.Stdout, true)
+		case "tab":
+			out = output.NewTabWriter(os.Stdout)
+		default:
+			fmt.Println("Only json,tab,pretty-json are accepted")
+			os.Exit(ExitCodeError)
+		}
+
+		out.RenderApps(herokuOrgs, dynoSize, *dynoUnitPrice)
+	case ips.FullCommand():
+		ipList := hls.GetIPList("heroku-ips-listing", "ips from heroku spaces")
+
+		f, err := os.Create(*outputFile)
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Error opening file: %v", err))
+			return
+		}
+		defer f.Close()
+		ipList.Yamlize(f)
+		fmt.Println(fmt.Sprintf("Success! Created file: %s", *outputFile))
 	}
 
-	dynoSize, err := hls.GetDynoSizeInformation()
-	if err != nil {
-		fmt.Println(err)
-	}
-	var out output.Output
-	switch *format {
-	case "json":
-		out = output.NewJsonWriter(os.Stdout, false)
-	case "pretty-json":
-		out = output.NewJsonWriter(os.Stdout, true)
-	case "tab":
-		out = output.NewTabWriter(os.Stdout)
-	default:
-		fmt.Println("Only json,tab,pretty-json are accepted")
-		os.Exit(ExitCodeError)
-	}
-
-	out.RenderApps(herokuOrgs, dynoSize, *dynoUnitPrice)
-}
-
-func doIPs() {
-	h := heroku.NewService(heroku.DefaultClient)
-	hs := herokuipls.NewHerokuService(h)
-	ipList := hs.GetIPList("heroku-ips-listing", "ips from heroku spaces")
-
-	f, _ := os.Create(*outputFile)
-	ipList.Yamlize(f)
-	fmt.Println(fmt.Sprintf("Success! Created file: %s", *outputFile))
 }

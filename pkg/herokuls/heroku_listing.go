@@ -2,6 +2,7 @@ package herokuls
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strconv"
 	"sync"
@@ -268,4 +269,93 @@ func MergeAddon(addOns []AddOnTypeByApp, dynos []DynoTypeByApp) [][]string {
 	}
 
 	return mergedString
+}
+
+// GetIPList get all ips from all spaces of the user's enterprise teams
+func (hls *HerokuListing) GetIPList(name, description string) *IPList {
+	ts, err := hls.Cli.TeamList(hls.ctx, &heroku.ListRange{Field: "id"})
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Error on TeamList: %v", err))
+	}
+	// get only enterprise teams
+	var teams []heroku.Team
+	for _, team := range ts {
+		if team.Type == TeamTypeEnterprise {
+			teams = append(teams, team)
+		}
+	}
+	spaces, err := hls.GetSpacesFromTeams(&teams)
+	if err != nil {
+		return nil
+	}
+	ipList, err := hls.buildIPListFromSpaces(name, description, &spaces)
+	if err != nil {
+		return nil
+	}
+	return ipList
+}
+
+// GetSpacesFromTeams get spaces that the provided teams own
+func (hls *HerokuListing) GetSpacesFromTeams(ts *[]heroku.Team) ([]heroku.Space, error) {
+	teams := map[string]bool{}
+	for _, team := range *ts {
+		teams[team.ID] = true
+	}
+
+	spaces, err := hls.Cli.SpaceList(hls.ctx, &heroku.ListRange{Field: "id"})
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Error on SpaceList: %v", err))
+		return nil, err
+	}
+	var res []heroku.Space
+	for _, space := range spaces {
+		if _, exists := teams[space.Team.ID]; exists {
+			res = append(res, space)
+		}
+	}
+	return res, nil
+}
+
+// build an IPList instances using heroku.Space info
+func (hls *HerokuListing) buildIPListFromSpaces(name, description string, spaces *[]heroku.Space) (*IPList, error) {
+	if spaces == nil { // save the dereference
+		return nil, nil
+	}
+
+	ipList := &IPList{
+		Name:        name,
+		Description: description,
+	}
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	errChan := make(chan error)
+
+	rl := ratelimit.New(40) // per second
+
+	for _, s := range *spaces {
+		wg.Add(1)
+		go func(space heroku.Space) {
+			defer wg.Done()
+			rl.Take()
+
+			spaceNat, err := hls.Cli.SpaceNATInfo(hls.ctx, space.ID)
+			if err != nil {
+				fmt.Println(fmt.Sprintf("Error on SpaceNATInfo during buildIPListFromSpaces: %v", err))
+				errChan <- err
+				return
+			}
+
+			mutex.Lock()
+			ipList.IPListItems = append(ipList.IPListItems, IPListItem{
+				Name:        fmt.Sprintf("%s/%s", space.Team.Name, space.Name),
+				Description: fmt.Sprintf("IP list from `%s > %s`", space.Team.Name, space.Name),
+				IPList:      spaceNat.Sources,
+			})
+			mutex.Unlock()
+		}(s)
+	}
+
+	wg.Wait()
+	close(errChan)
+	return ipList, <-errChan
 }
