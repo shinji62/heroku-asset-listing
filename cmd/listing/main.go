@@ -88,6 +88,7 @@ func main() {
 			return
 		}
 		defer f.Close()
+		ipList.Type = "heroku"
 		ipList.Yamlize(f)
 		fmt.Println(fmt.Sprintf("Success! Created file: %s", *outputFile))
 	}
