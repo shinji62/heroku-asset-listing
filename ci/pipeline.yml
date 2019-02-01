@@ -42,7 +42,7 @@ jobs:
     input_mapping:
       source-code: heroku-asset-listing-master
 
-      
+
 - name: Ship-it-Patch
   public: true
   serial: true
@@ -102,7 +102,7 @@ templating:
     task: build-binary
     file: heroku-asset-listing-master/ci/tasks/build-binary/build-binary.yml
     params:
-      COMMIT_SHA1: heroku-asset-listing-master/.git/ref
+      COMMIT_SHA1: source-code/.git/ref
       VERSION_APP: version/version
     input_mapping:
       source-code: heroku-asset-listing-master
